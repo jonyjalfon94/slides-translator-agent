@@ -8,6 +8,7 @@ import re
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any
 
+import httpx
 from google.adk.tools import ToolContext
 from google.auth.transport.requests import Request
 from google.genai import Client
@@ -24,9 +25,66 @@ logger = logging.getLogger(__name__)
 # %% HELPERS
 
 
+def get_user_email_from_token(access_token: str) -> str | None:
+    """Fetch the user's email from Google OAuth2 UserInfo API using the access token.
+
+    This is useful when deployed to Gemini Enterprise to identify the authenticated user.
+
+    Args:
+        access_token: The OAuth2 access token from Gemini Enterprise
+
+    Returns:
+        The user's email address, or None if the request fails
+    """
+    try:
+        with httpx.Client(timeout=10.0) as client:
+            resp = client.get(
+                "https://www.googleapis.com/oauth2/v3/userinfo",
+                headers={"Authorization": f"Bearer {access_token}"},
+            )
+            resp.raise_for_status()
+            return resp.json().get("email")
+    except httpx.HTTPStatusError as e:
+        logger.error(f"HTTP error getting user email: {e.response.status_code}")
+        return None
+    except Exception as e:
+        logger.error(f"Error getting user email: {e}")
+        return None
+
+
 def negotiate_creds(tool_context: ToolContext) -> Credentials | dict:
-    """Handle the OAuth 2.0 flow to get valid credentials."""
-    logger.info("Negotiating credentials using oauth 2.0")
+    """Handle the OAuth 2.0 flow to get valid credentials.
+
+    Supports two deployment modes:
+    - "gemini_enterprise": Uses access token provided by Gemini Enterprise's managed OAuth
+    - "local": Uses ADK's built-in OAuth flow with request_credential/get_auth_response
+    """
+    deployment_mode = configs.DEPLOYMENT_MODE
+    logger.info(f"Negotiating credentials using oauth 2.0 (mode: {deployment_mode})")
+
+    # --- Gemini Enterprise Mode ---
+    # When deployed to Gemini Enterprise, the access token is automatically
+    # provided in tool_context.state under the configured auth_id
+    if deployment_mode == "gemini_enterprise":
+        auth_id = configs.GEMINI_ENTERPRISE_AUTH_ID
+        logger.debug(f"Gemini Enterprise mode: looking for token under auth_id='{auth_id}'")
+
+        access_token = tool_context.state.get(auth_id)
+        if access_token:
+            logger.info(f"Found access token from Gemini Enterprise (auth_id='{auth_id}')")
+            # Create credentials from the raw access token
+            # Note: These credentials cannot be refreshed - Gemini Enterprise manages the token lifecycle
+            return Credentials(token=access_token)
+        else:
+            logger.error(f"No access token found in tool_context.state for auth_id='{auth_id}'")
+            return {
+                "error": True,
+                "message": f"Authentication required. No access token found for auth_id='{auth_id}'. "
+                "Please ensure the authorization is properly configured in Gemini Enterprise.",
+            }
+
+    # --- Local Development Mode (Agent Engine) ---
+    # Use the standard ADK OAuth flow with request_credential/get_auth_response
     # Check for cached credentials in the tool state
     if cached_token := tool_context.state.get(configs.TOKEN_CACHE_KEY):
         logger.debug("Found cached token in tool context state")

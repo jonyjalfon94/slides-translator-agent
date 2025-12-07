@@ -15,8 +15,10 @@ AGENT_FOLDER = os.path.dirname(os.path.abspath(__file__))
 
 # optional
 AGENT_ENGINE_ID = os.getenv("AGENT_ENGINE_ID")
-AUTHENTICATION_CLIENT_ID = os.getenv("AUTHENTICATION_CLIENT_ID")
-AUTHENTICATION_CLIENT_SECRET = os.getenv("AUTHENTICATION_CLIENT_SECRET")
+AUTHENTICATION_CLIENT_ID = os.getenv("AUTHENTICATION_CLIENT_ID", "")
+AUTHENTICATION_CLIENT_SECRET = os.getenv("AUTHENTICATION_CLIENT_SECRET", "")
+DEPLOYMENT_MODE = os.getenv("DEPLOYMENT_MODE", "local")
+GEMINI_ENTERPRISE_AUTH_ID = os.getenv("GEMINI_ENTERPRISE_AUTH_ID", "authentication")
 LOGGING_LEVEL = os.getenv("LOGGING_LEVEL", "INFO")
 
 # required
@@ -45,8 +47,13 @@ config = {
     "extra_packages": [os.path.basename(AGENT_FOLDER)],
     "staging_bucket": STAGING_BUCKET,
     "env_vars": {
+        # Deployment mode configuration
+        "DEPLOYMENT_MODE": DEPLOYMENT_MODE,
+        "GEMINI_ENTERPRISE_AUTH_ID": GEMINI_ENTERPRISE_AUTH_ID,
+        # OAuth credentials (only needed for local/Agent Engine mode)
         "AUTHENTICATION_CLIENT_ID": AUTHENTICATION_CLIENT_ID,
         "AUTHENTICATION_CLIENT_SECRET": AUTHENTICATION_CLIENT_SECRET,
+        # Telemetry
         "GOOGLE_CLOUD_AGENT_ENGINE_ENABLE_TELEMETRY": "true",
         "OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT": "true",
     },

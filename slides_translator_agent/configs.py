@@ -7,10 +7,18 @@ import os
 
 # %% CONFIGS
 
+# %% Deployment Mode
+# "local" = Use Agent Engine OAuth flow (with request_credential)
+# "gemini_enterprise" = Use access token from Gemini Enterprise's managed auth
+DEPLOYMENT_MODE = os.getenv("DEPLOYMENT_MODE", "local")
+
 # %% Authentication
 
-AUTHENTICATION_CLIENT_ID = os.environ["AUTHENTICATION_CLIENT_ID"]
-AUTHENTICATION_CLIENT_SECRET = os.environ["AUTHENTICATION_CLIENT_SECRET"]
+AUTHENTICATION_CLIENT_ID = os.getenv("AUTHENTICATION_CLIENT_ID", "")
+AUTHENTICATION_CLIENT_SECRET = os.getenv("AUTHENTICATION_CLIENT_SECRET", "")
+
+# Auth ID configured in Gemini Enterprise (must match the Authorization ID in the UI)
+GEMINI_ENTERPRISE_AUTH_ID = os.getenv("GEMINI_ENTERPRISE_AUTH_ID", "authentication")
 
 # %% Concurrent
 
